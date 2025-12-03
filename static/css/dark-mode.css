@@ -1,0 +1,16 @@
+/* Additional dark mode styles */
+body.dark-mode header {
+    background-color: #1b5e20;
+}
+
+body.dark-mode button {
+    background-color: #1b5e20;
+}
+
+body.dark-mode button:hover {
+    background-color: #2e7d32;
+}
+
+body.dark-mode .game-status {
+    color: #e0e0e0;
+}

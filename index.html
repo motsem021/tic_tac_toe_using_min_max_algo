@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Games</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin:0; padding:0; font-family: 'Inter', sans-serif; }
+body { background:#f5f5f7; display:flex; flex-direction:column; align-items:center; min-height:100vh; }
+h1 { margin:30px 0 10px 0; font-size:2.5rem; color:#333; }
+#games { display:flex; gap:20px; margin-bottom:20px; }
+button { padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:0.2s; }
+button:hover { transform:scale(1.05); }
+#games button { background:#4f46e5; color:white; }
+#games button:hover { background:#4338ca; }
+.game { display:none; background:white; padding:20px; border-radius:15px; box-shadow:0 10px 20px rgba(0,0,0,0.1); margin-bottom:30px; min-width:360px; }
+#board { display:grid; grid-template-columns:repeat(3,100px); gap:10px; justify-content:center; margin:20px auto; }
+.cell { width:100px; height:100px; background:#e5e7eb; display:flex; align-items:center; justify-content:center; font-size:2rem; border-radius:12px; cursor:pointer; transition:0.2s; }
+.cell:hover { background:#d1d5db; }
+.cell.disabled { pointer-events:none; background:#9ca3af; color:white; }
+#status { margin-top:10px; font-weight:600; color:#1f2937; min-height:24px; }
+#controls { margin-top:10px; display:flex; gap:10px; justify-content:center; align-items:center; }
+
+#c4board { display:grid; grid-template-columns:repeat(7,60px); gap:5px; justify-content:center; margin:20px auto; }
+.c4cell { width:60px; height:60px; background:#e5e7eb; border-radius:50%; cursor:pointer; transition:0.2s; }
+.c4cell:hover { background:#d1d5db; }
+.c4cell.red { background:red; }
+.c4cell.yellow { background:yellow; }
+
+select { padding:5px 10px; border-radius:6px; border:1px solid #ccc; }
+.reset-btn { background:#f87171; color:white; }
+.reset-btn:hover { background:#ef4444; }
+</style>
+</head>
+<body>
+
+<h1>AI Games</h1>
+
+<div id="games">
+    <button onclick="showGame('tictactoe')">Tic Tac Toe</button>
+    <button onclick="showGame('connect4')">Connect 4</button>
+</div>
+
+<!-- Tic Tac Toe -->
+<div id="tictactoe" class="game">
+    <h2>Tic Tac Toe</h2>
+    <div id="board"></div>
+    <div id="status"></div>
+    <div id="controls">
+        <label>Difficulty:
+            <select id="tttdifficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </label>
+        <button class="reset-btn" onclick="resetTTT()">Reset</button>
+    </div>
+</div>
+
+<!-- Connect 4 -->
+<div id="connect4" class="game">
+    <h2>Connect 4</h2>
+    <div id="c4board"></div>
+    <div id="statusC4"></div>
+    <div id="controls">
+        <label>Difficulty:
+            <select id="c4difficulty">
+                <option value="easy" selected>Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </label>
+        <button class="reset-btn" onclick="resetC4()">Reset</button>
+    </div>
+</div>
+
+<script>
+// ---------- Game Switch ----------
+function showGame(id){
+    document.querySelectorAll('.game').forEach(g=>g.style.display='none');
+    document.getElementById(id).style.display='block';
+}
+
+// -------- Tic Tac Toe --------
+const boardDiv = document.getElementById('board');
+const statusDiv = document.getElementById('status');
+let tttBoard = Array(9).fill(''), tttPlayer='X', tttAI='O', tttGameOver=false;
+
+function renderBoard(){
+    boardDiv.innerHTML='';
+    tttBoard.forEach((cell,i)=>{
+        const div=document.createElement('div');
+        div.className='cell'+(cell?' disabled':'');
+        div.textContent=cell;
+        div.addEventListener('click',()=>tttMove(i));
+        boardDiv.appendChild(div);
+    });
+}
+
+function tttMove(i){
+    if(tttGameOver || tttBoard[i]) return;
+    tttBoard[i]=tttPlayer;
+    renderBoard();
+    tttCheck();
+    if(!tttGameOver) tttAIPlay();
+}
+
+async function tttAIPlay(){
+    const diff = document.getElementById('tttdifficulty').value;
+    const res = await fetch('/tictactoe/move',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({board:tttBoard,player:tttAI,difficulty:diff})
+    });
+    const data = await res.json();
+    if(data.move!==-1){ tttBoard[data.move]=tttAI; renderBoard(); tttCheck(); }
+}
+
+function tttCheck(){
+    const winner = tttWinner();
+    if(winner){ statusDiv.textContent = winner==='tie'?"Tie!":winner+" wins!"; tttGameOver=true; }
+}
+
+function tttWinner(){
+    const lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for(const [a,b,c] of lines){ if(tttBoard[a] && tttBoard[a]===tttBoard[b] && tttBoard[a]===tttBoard[c]) return tttBoard[a]; }
+    return tttBoard.includes('')?null:'tie';
+}
+
+function resetTTT(){ tttBoard=Array(9).fill(''); tttGameOver=false; statusDiv.textContent=''; renderBoard(); }
+renderBoard();
+
+// -------- Connect 4 --------
+const c4Div = document.getElementById('c4board');
+const statusC4 = document.getElementById('statusC4');
+let c4Rows=6, c4Cols=7;
+let c4Board = Array.from({length:c4Rows},()=>Array(c4Cols).fill(''));
+let c4Player='R', c4AI='Y', c4GameOver=false;
+
+function renderC4(){
+    c4Div.innerHTML='';
+    for(let r=0;r<c4Rows;r++){
+        for(let c=0;c<c4Cols;c++){
+            const div=document.createElement('div');
+            div.className='c4cell'+(c4Board[r][c]? (c4Board[r][c]==='R'?' red':' yellow'):'');
+            div.addEventListener('click',()=>c4Move(c));
+            c4Div.appendChild(div);
+        }
+    }
+}
+
+function c4Move(col){
+    if(c4GameOver) return;
+    for(let r=c4Rows-1;r>=0;r--){
+        if(!c4Board[r][col]){
+            c4Board[r][col]=c4Player;
+            renderC4();
+            c4Check();
+            if(!c4GameOver) c4AIPlay();
+            break;
+        }
+    }
+}
+
+async function c4AIPlay(){
+    const diff = document.getElementById('c4difficulty').value;
+    const res = await fetch('/connect4/move',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({board:c4Board,player:c4AI,difficulty:diff})
+    });
+    const data = await res.json();
+    if(data.move!==-1){
+        for(let r=c4Rows-1;r>=0;r--){
+            if(!c4Board[r][data.move]){
+                c4Board[r][data.move]=c4AI;
+                renderC4();
+                c4Check();
+                break;
+            }
+        }
+    }
+}
+
+function c4Check(){
+    const winner = c4Winner();
+    if(winner){ statusC4.textContent = winner==='tie'?"Tie!":winner+" wins!"; c4GameOver=true; }
+}
+
+function c4Winner(){
+    for(let r=0;r<c4Rows;r++){
+        for(let c=0;c<c4Cols-3;c++){
+            const v=c4Board[r][c]; if(v && v===c4Board[r][c+1] && v===c4Board[r][c+2] && v===c4Board[r][c+3]) return v;
+        }
+    }
+    for(let c=0;c<c4Cols;c++){
+        for(let r=0;r<c4Rows-3;r++){
+            const v=c4Board[r][c]; if(v && v===c4Board[r+1][c] && v===c4Board[r+2][c] && v===c4Board[r+3][c]) return v;
+        }
+    }
+    for(let r=0;r<c4Rows-3;r++){
+        for(let c=0;c<c4Cols-3;c++){
+            const v=c4Board[r][c]; if(v && v===c4Board[r+1][c+1] && v===c4Board[r+2][c+2] && v===c4Board[r+3][c+3]) return v;
+            const u=c4Board[r+3][c]; if(u && u===c4Board[r+2][c+1] && u===c4Board[r+1][c+2] && u===c4Board[r][c+3]) return u;
+        }
+    }
+    return c4Board.flat().includes('')?null:'tie';
+}
+
+function resetC4(){ c4Board = Array.from({length:c4Rows},()=>Array(c4Cols).fill('')); c4GameOver=false; statusC4.textContent=''; renderC4(); }
+renderC4();
+</script>
+
+</body>
+</html>
